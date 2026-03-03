@@ -222,13 +222,17 @@
       <input type="text" class="form-input" id="student-id" tabindex="1" placeholder="Student ID e.g. 4211xxxxxx">
     </div>
     <div class="form-group">
+      <label class="form-label">Full Name</label>
+      <input type="text" class="form-input" id="full-name" tabindex="2" placeholder="e.g. Kwame Asante">
+    </div>
+    <div class="form-group">
       <label class="form-label">GCTU Email Address</label>
-      <input type="email" class="form-input" id="email" tabindex="2" placeholder="e.g. 4211xxxxxx@gctu.edu.gh">
+      <input type="email" class="form-input" id="email" tabindex="3" placeholder="e.g. 4211xxxxxx@gctu.edu.gh">
     </div>
     <div class="form-group">
       <label class="form-label">Create Password</label>
       <div class="input-wrap">
-        <input type="password" class="form-input pw-input" id="reg-password" tabindex="3" placeholder="Create a strong password" oninput="checkStrength()">
+        <input type="password" class="form-input pw-input" id="reg-password" tabindex="5" placeholder="Create a strong password" oninput="checkStrength()">
         <button type="button" class="pw-toggle" id="pt1" onclick="togglePw('reg-password','pt1')"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
       </div>
       <div class="pw-strength" id="pw-strength">
@@ -338,7 +342,7 @@ var GTV = {
 
   // Tab and Enter keyboard navigation
   document.addEventListener('DOMContentLoaded', function() {
-    var fields = ['student-id', 'email', 'reg-password', 'reg-confirm'];
+    var fields = ['student-id', 'full-name', 'email', 'reg-password', 'reg-confirm'];
 
     fields.forEach(function(id, i) {
       var el = document.getElementById(id);
@@ -420,6 +424,9 @@ var GTV = {
 
     hideError('reg-error-box');
     if (!sid)               { showError('reg-error-box','reg-error-text','Please enter your Student ID.'); triggerShake(); return; }
+    var fullName = document.getElementById('full-name').value.trim();
+    if (!fullName) { showError('reg-error-box','reg-error-text','Please enter your full name.'); triggerShake(); return; }
+    if (fullName.split(' ').length < 2) { showError('reg-error-box','reg-error-text','Please enter your first and last name.'); triggerShake(); return; }
     if (!sid.startsWith('421') || sid.length !== 10) { showError('reg-error-box','reg-error-text','Invalid Student ID. Must start with 421 and be exactly 10 digits.'); triggerShake(); return; }
     var existing = GTV.getStudents();
     if (existing.find(function(s){ return s.id === sid; })) { showError('reg-error-box','reg-error-text','An account with this Student ID already exists. Please log in.'); triggerShake(); return; }
@@ -491,8 +498,7 @@ var GTV = {
         /* ── Save student to localStorage ── */
         var students = GTV.getStudents();
         if (!students.find(function(s){ return s.id === sid; })) {
-          var namePart = email.split('@')[0].replace(/[._]/g,' ');
-          var name = namePart.charAt(0).toUpperCase() + namePart.slice(1) || 'GCTU Student';
+          var name = document.getElementById('full-name').value.trim();
           students.push({ id: sid, email: email, name: name,
             faculty: 'Faculty of Information Technology',
             level: '400', password: pw, voted: false, receiptCode: null });
