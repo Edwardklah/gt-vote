@@ -138,17 +138,17 @@
     text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 0.5rem;
   }
   .stats-row {
-    display: flex; justify-content: center; gap: 1rem;
-    width: 100%;
+    display: flex; justify-content: center; gap: 0.5rem;
+    width: 100%; padding: 0 0.5rem;
   }
   .stat {
-    text-align: center; padding: 1rem 1.1rem;
+    text-align: center; padding: 0.75rem 0.5rem;
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.18);
     border-radius: 14px; backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-    flex: 1; max-width: 110px;
+    flex: 1; min-width: 0; max-width: 120px;
   }
   .stat-value { font-size: 1.5rem; font-weight: 900; color: #C9A227; line-height: 1.1; }
   .stat-label { font-size: 0.6rem; color: rgba(255,255,255,0.6); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 5px; }
