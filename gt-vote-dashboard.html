@@ -275,7 +275,7 @@
     </div>
     <div class="nav-right">
       <div style="position:relative;cursor:pointer;" onclick="toggleNotif()" title="Announcements">
-        <span style="font-size:1.1rem;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+        <span style="font-size:1.1rem;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
         <span id="notif-dot" style="
           position:absolute; top:-2px; right:-2px;
           width:8px; height:8px; border-radius:50%;
@@ -284,7 +284,7 @@
         "></span>
       </div>
       <div class="nav-student-name" id="nav-name">Klah Edward</div>
-      <button class="logout-btn" onclick="navigateTo('gt-vote-home.html')">Sign Out</button>
+      <button class="logout-btn" onclick="GTV.logout(); navigateTo('gt-vote-home.html')">Sign Out</button>
     </div>
   </div>
 
@@ -452,14 +452,14 @@
     </div>
   </div>
   <div class="notif-item">
-    <span class="notif-item-icon">🏅</span>
+    <span class="notif-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:4px;"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></span>
     <div>
       <div class="notif-item-text"><strong>Faculty of IT</strong> is leading the leaderboard at 82% turnout!</div>
       <div class="notif-item-time">1 hour ago</div>
     </div>
   </div>
   <div class="notif-item">
-    <span class="notif-item-icon">📍</span>
+    <span class="notif-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
     <div>
       <div class="notif-item-text">Results will be announced <strong>live at 6:00 PM</strong> at the Main Hall.</div>
       <div class="notif-item-time">30 minutes ago</div>
@@ -470,7 +470,7 @@
 <!-- Confirmation Popup -->
 <div class="popup-overlay" id="popup-overlay">
   <div class="popup">
-    <div class="popup-icon">🗳️</div>
+    <div class="popup-icon"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style=""><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
     <div class="popup-title">Ready to Vote?</div>
     <div class="popup-sub">
       You're about to cast your vote as<br>
@@ -486,6 +486,48 @@
 </div>
 
 <script>
+
+/* ── GT-Vote localStorage helpers ── */
+var GTV = {
+  getStudents: function() {
+    try { return JSON.parse(localStorage.getItem('gtvote_students') || '[]'); } catch(e) { return []; }
+  },
+  saveStudents: function(arr) {
+    localStorage.setItem('gtvote_students', JSON.stringify(arr));
+  },
+  getCurrentUser: function() {
+    var sid = localStorage.getItem('gtvote_current_user');
+    if (!sid) return null;
+    return GTV.getStudents().find(function(s){ return s.id === sid; }) || null;
+  },
+  setCurrentUser: function(sid) {
+    localStorage.setItem('gtvote_current_user', sid);
+  },
+  logout: function() {
+    localStorage.removeItem('gtvote_current_user');
+  },
+  getBallots: function() {
+    try { return JSON.parse(localStorage.getItem('gtvote_ballots') || '[]'); } catch(e) { return []; }
+  },
+  saveBallot: function(ballot) {
+    var ballots = GTV.getBallots();
+    ballots.push(ballot);
+    localStorage.setItem('gtvote_ballots', JSON.stringify(ballots));
+  },
+  findBallot: function(code) {
+    return GTV.getBallots().find(function(b){ return b.receiptCode === code.toUpperCase(); }) || null;
+  },
+  generateReceipt: function() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var code = '';
+    for (var i = 0; i < 12; i++) {
+      if (i > 0 && i % 4 === 0) code += '-';
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+  }
+};
+
   function toggleNotif() {
     var dd = document.getElementById('notif-dropdown');
     dd.classList.toggle('show');
@@ -537,14 +579,60 @@
     setTimeout(function() { window.location.href = url; }, 350);
   }
 
-  // Read student name from URL param (passed from login)
+  // ── Load student from localStorage ──
   (function() {
-    var params = new URLSearchParams(window.location.search);
-    var name = params.get('name') || 'Klah Edward Owusu';
-    var firstName = name.split(' ')[0];
-    document.getElementById('welcome-name').textContent = name;
-    document.getElementById('nav-name').textContent = firstName;
-    document.getElementById('popup-name').textContent = name;
+    var user = GTV.getCurrentUser();
+    if (!user) {
+      window.location.href = 'gt-vote-login.html';
+      return;
+    }
+
+    /* Fill in name fields */
+    var navName = document.getElementById('nav-name');
+    if (navName) navName.textContent = user.name.split(' ')[0] + ' ' + (user.name.split(' ')[1] || '');
+
+    var welcomeName = document.getElementById('welcome-name');
+    if (welcomeName) welcomeName.textContent = user.name;
+
+    var popupName = document.getElementById('popup-name');
+    if (popupName) popupName.textContent = user.name;
+
+    /* If already voted — update status + disable vote button + enable verify */
+    if (user.voted && user.receiptCode) {
+      /* Update status badge */
+      var badge = document.getElementById('status-badge');
+      if (badge) {
+        badge.textContent = 'Voted';
+        badge.className = 'status-badge';
+        badge.style.background = 'rgba(34,197,94,0.15)';
+        badge.style.border = '1px solid rgba(34,197,94,0.4)';
+        badge.style.color = '#22C55E';
+      }
+
+      /* Disable vote button */
+      var voteBtn = document.getElementById('vote-btn');
+      if (voteBtn) {
+        voteBtn.disabled = true;
+        voteBtn.style.opacity = '0.4';
+        voteBtn.style.cursor = 'not-allowed';
+        voteBtn.onclick = null;
+        voteBtn.innerHTML = voteBtn.innerHTML.replace('Cast Your Vote', 'Already Voted');
+      }
+
+      /* Show receipt code below vote button */
+      var voteWrap = document.getElementById('vote-btn') ? document.getElementById('vote-btn').parentNode : null;
+      if (voteWrap && !document.getElementById('receipt-strip')) {
+        var strip = document.createElement('div');
+        strip.id = 'receipt-strip';
+        strip.style.cssText = 'margin-top:0.75rem;background:rgba(201,162,39,0.1);border:1px solid rgba(201,162,39,0.3);border-radius:10px;padding:0.65rem 1rem;text-align:center;';
+        strip.innerHTML = '<div style="font-size:0.6rem;color:rgba(255,255,255,0.4);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Your Receipt Code</div>'
+          + '<div style="font-size:0.95rem;font-weight:900;color:#C9A227;letter-spacing:0.12em;">' + user.receiptCode + '</div>';
+        voteWrap.appendChild(strip);
+      }
+
+      /* Enable verify button */
+      enableVerify();
+    }
   })();
 
   // Countdown

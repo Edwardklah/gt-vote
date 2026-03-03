@@ -294,6 +294,48 @@
 </div>
 
 <script>
+
+/* ── GT-Vote localStorage helpers ── */
+var GTV = {
+  getStudents: function() {
+    try { return JSON.parse(localStorage.getItem('gtvote_students') || '[]'); } catch(e) { return []; }
+  },
+  saveStudents: function(arr) {
+    localStorage.setItem('gtvote_students', JSON.stringify(arr));
+  },
+  getCurrentUser: function() {
+    var sid = localStorage.getItem('gtvote_current_user');
+    if (!sid) return null;
+    return GTV.getStudents().find(function(s){ return s.id === sid; }) || null;
+  },
+  setCurrentUser: function(sid) {
+    localStorage.setItem('gtvote_current_user', sid);
+  },
+  logout: function() {
+    localStorage.removeItem('gtvote_current_user');
+  },
+  getBallots: function() {
+    try { return JSON.parse(localStorage.getItem('gtvote_ballots') || '[]'); } catch(e) { return []; }
+  },
+  saveBallot: function(ballot) {
+    var ballots = GTV.getBallots();
+    ballots.push(ballot);
+    localStorage.setItem('gtvote_ballots', JSON.stringify(ballots));
+  },
+  findBallot: function(code) {
+    return GTV.getBallots().find(function(b){ return b.receiptCode === code.toUpperCase(); }) || null;
+  },
+  generateReceipt: function() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var code = '';
+    for (var i = 0; i < 12; i++) {
+      if (i > 0 && i % 4 === 0) code += '-';
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+  }
+};
+
   // Tab and Enter keyboard navigation
   document.addEventListener('DOMContentLoaded', function() {
     var fields = ['student-id', 'email', 'reg-password', 'reg-confirm'];
@@ -343,7 +385,7 @@
     var f = document.getElementById(fieldId);
     var b = document.getElementById(btnId);
     f.type = f.type === 'password' ? 'text' : 'password';
-    b.textContent = f.type === 'password' ? '👁' : '🙈';
+    b.innerHTML = f.type === 'password' ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
   }
 
   function checkStrength() {
@@ -378,7 +420,10 @@
 
     hideError('reg-error-box');
     if (!sid)               { showError('reg-error-box','reg-error-text','Please enter your Student ID.'); triggerShake(); return; }
-    if (!sid.startsWith('421')) { showError('reg-error-box','reg-error-text','Invalid Student ID format. Must start with 421.'); triggerShake(); return; }
+    if (!sid.startsWith('421') || sid.length !== 10) { showError('reg-error-box','reg-error-text','Invalid Student ID. Must start with 421 and be exactly 10 digits.'); triggerShake(); return; }
+    var existing = GTV.getStudents();
+    if (existing.find(function(s){ return s.id === sid; })) { showError('reg-error-box','reg-error-text','An account with this Student ID already exists. Please log in.'); triggerShake(); return; }
+    if (existing.find(function(s){ return s.email === email; })) { showError('reg-error-box','reg-error-text','This email is already registered to another account.'); triggerShake(); return; }
     if (!email)             { showError('reg-error-box','reg-error-text','Please enter your GCTU email address.'); triggerShake(); return; }
     if (!email.includes('@')){ showError('reg-error-box','reg-error-text','Please enter a valid email address.'); triggerShake(); return; }
     if (!pw)                { showError('reg-error-box','reg-error-text','Please create a password.'); triggerShake(); return; }
@@ -440,7 +485,19 @@
 
     setTimeout(function() {
       if (otp === demoOtp) {
-        var sid = document.getElementById('student-id').value.trim();
+        var sid    = document.getElementById('student-id').value.trim();
+        var email  = document.getElementById('email').value.trim();
+        var pw     = document.getElementById('reg-password').value;
+        /* ── Save student to localStorage ── */
+        var students = GTV.getStudents();
+        if (!students.find(function(s){ return s.id === sid; })) {
+          var namePart = email.split('@')[0].replace(/[._]/g,' ');
+          var name = namePart.charAt(0).toUpperCase() + namePart.slice(1) || 'GCTU Student';
+          students.push({ id: sid, email: email, name: name,
+            faculty: 'Faculty of Information Technology',
+            level: '400', password: pw, voted: false, receiptCode: null });
+          GTV.saveStudents(students);
+        }
         document.getElementById('s-id').textContent = sid;
         showScreen('screen-success');
         setTimeout(function() {

@@ -358,6 +358,48 @@
 </div>
 
 <script>
+
+/* ── GT-Vote localStorage helpers ── */
+var GTV = {
+  getStudents: function() {
+    try { return JSON.parse(localStorage.getItem('gtvote_students') || '[]'); } catch(e) { return []; }
+  },
+  saveStudents: function(arr) {
+    localStorage.setItem('gtvote_students', JSON.stringify(arr));
+  },
+  getCurrentUser: function() {
+    var sid = localStorage.getItem('gtvote_current_user');
+    if (!sid) return null;
+    return GTV.getStudents().find(function(s){ return s.id === sid; }) || null;
+  },
+  setCurrentUser: function(sid) {
+    localStorage.setItem('gtvote_current_user', sid);
+  },
+  logout: function() {
+    localStorage.removeItem('gtvote_current_user');
+  },
+  getBallots: function() {
+    try { return JSON.parse(localStorage.getItem('gtvote_ballots') || '[]'); } catch(e) { return []; }
+  },
+  saveBallot: function(ballot) {
+    var ballots = GTV.getBallots();
+    ballots.push(ballot);
+    localStorage.setItem('gtvote_ballots', JSON.stringify(ballots));
+  },
+  findBallot: function(code) {
+    return GTV.getBallots().find(function(b){ return b.receiptCode === code.toUpperCase(); }) || null;
+  },
+  generateReceipt: function() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var code = '';
+    for (var i = 0; i < 12; i++) {
+      if (i > 0 && i % 4 === 0) code += '-';
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+  }
+};
+
   // Enter key submits, Tab moves between fields
   document.getElementById('student-id').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') handleLogin();
@@ -378,7 +420,7 @@
     var f = document.getElementById('password');
     var b = document.getElementById('pw-toggle');
     f.type = f.type === 'password' ? 'text' : 'password';
-    b.textContent = f.type === 'password' ? '👁' : '🙈';
+    b.textContent = f.type === 'password' ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
   }
 
   function showError(msg) {
@@ -427,28 +469,48 @@
     btn.innerHTML = '<span class="spinner"></span>Signing in...';
 
     setTimeout(function() {
-      if (sid.startsWith('421')) {
-        /* SUCCESS — map student ID to name & faculty (demo data) */
-        var students = {
-          '4211230035': { name: 'Klah Edward Owusu',  faculty: 'Faculty of Information Technology' },
-          '4211230217': { name: 'Edwin Komla Safo',   faculty: 'Faculty of Information Technology' },
-          '4211231044': { name: 'Lord Amprofi',       faculty: 'Faculty of Information Technology' },
-        };
-        var student = students[sid] || { name: 'GCTU Student', faculty: 'Faculty of Information Technology' };
+      /* ── Check localStorage first ── */
+      var students = GTV.getStudents();
+      var match = students.find(function(s){ return s.id === sid && s.password === pwd; });
 
-        document.getElementById('success-name').textContent    = 'Welcome, ' + student.name;
-        document.getElementById('success-faculty').textContent = student.faculty;
+      /* ── Fall back to demo accounts if not registered yet ── */
+      if (!match) {
+        var demoAccounts = [
+          { id:'4211230035', password:'Admin123!', name:'Klah Edward Owusu',  faculty:'Faculty of Information Technology', level:'400', voted:false, receiptCode:null },
+          { id:'4211230217', password:'Admin123!', name:'Edwin Komla Safo',   faculty:'Faculty of Information Technology', level:'400', voted:false, receiptCode:null },
+          { id:'4211231044', password:'Admin123!', name:'Lord Amprofi',       faculty:'Faculty of Information Technology', level:'400', voted:false, receiptCode:null },
+        ];
+        match = demoAccounts.find(function(s){ return s.id === sid && s.password === pwd; });
+        if (match) {
+          /* Save demo account to localStorage so ballot/dashboard can read it */
+          if (!students.find(function(s){ return s.id === sid; })) {
+            students.push(match);
+            GTV.saveStudents(students);
+          }
+        }
+      }
+
+      if (!match) {
+        /* Check if ID exists but wrong password */
+        var allStudents = GTV.getStudents();
+        var idExists = allStudents.find(function(s){ return s.id === sid; });
+        btn.disabled = false;
+        btn.innerHTML = 'Sign In';
+        if (!idExists) {
+          showError('No account found for this Student ID. Please register first.');
+        } else {
+          showError('Incorrect password. Please try again.');
+        }
+        triggerShake();
+      } else if (match) {
+        GTV.setCurrentUser(match.id);
+        document.getElementById('success-name').textContent    = 'Welcome, ' + match.name;
+        document.getElementById('success-faculty').textContent = match.faculty;
         document.getElementById('login-section').style.display = 'none';
         document.getElementById('success-screen').style.display = 'block';
         setTimeout(function() {
           navigateTo('gt-vote-dashboard.html');
         }, 2500);
-      } else {
-        /* FAILURE */
-        btn.disabled = false;
-        btn.innerHTML = 'Sign In';
-        showError('Invalid Student ID or password. Please try again.');
-        triggerShake();
       }
     }, 1400);
   }

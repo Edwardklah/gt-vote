@@ -172,6 +172,59 @@ body.fade-out { animation:fadeOut 0.35s ease forwards; pointer-events:none; }
   <div class='r-note' id='copy-confirm' style='margin-top:0.65rem;font-size:0.7rem;color:rgba(255,255,255,0.3);'>Save this code to verify your vote was counted.</div>
 </div>
 <script>
+
+/* ── GT-Vote localStorage helpers ── */
+var GTV = {
+  getStudents: function() {
+    try { return JSON.parse(localStorage.getItem('gtvote_students') || '[]'); } catch(e) { return []; }
+  },
+  saveStudents: function(arr) {
+    localStorage.setItem('gtvote_students', JSON.stringify(arr));
+  },
+  getCurrentUser: function() {
+    var sid = localStorage.getItem('gtvote_current_user');
+    if (!sid) return null;
+    return GTV.getStudents().find(function(s){ return s.id === sid; }) || null;
+  },
+  setCurrentUser: function(sid) {
+    localStorage.setItem('gtvote_current_user', sid);
+  },
+  logout: function() {
+    localStorage.removeItem('gtvote_current_user');
+  },
+  getBallots: function() {
+    try { return JSON.parse(localStorage.getItem('gtvote_ballots') || '[]'); } catch(e) { return []; }
+  },
+  saveBallot: function(ballot) {
+    var ballots = GTV.getBallots();
+    ballots.push(ballot);
+    localStorage.setItem('gtvote_ballots', JSON.stringify(ballots));
+  },
+  findBallot: function(code) {
+    return GTV.getBallots().find(function(b){ return b.receiptCode === code.toUpperCase(); }) || null;
+  },
+  generateReceipt: function() {
+    var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var code = '';
+    for (var i = 0; i < 12; i++) {
+      if (i > 0 && i % 4 === 0) code += '-';
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+  }
+};
+
+/* ── Auth guard ── */
+(function() {
+  var user = GTV.getCurrentUser();
+  if (!user) {
+    window.location.href = 'gt-vote-login.html';
+    return;
+  }
+  if (user.voted) {
+    window.location.href = 'gt-vote-dashboard.html';
+  }
+})();
 var TOTAL = 6;
 var selections = [null,null,null,null,null,null];
 var currentTab = 0;
@@ -373,9 +426,41 @@ function copyCode() {
 
 function submitBallot() {
   closeRev();
-  document.getElementById("r-code").textContent = genCode();
+
+  /* ── Generate receipt & save to localStorage ── */
+  var receiptCode = GTV.generateReceipt();
+  document.getElementById("r-code").textContent = receiptCode;
+
+  /* Build selections object */
+  var selObj = {};
+  positions.forEach(function(pos, i) {
+    if (selections[i] !== null) selObj[pos.title] = pos.candidates[selections[i]];
+  });
+
+  /* Save ballot (anonymous — no student ID stored with choices) */
+  GTV.saveBallot({
+    receiptCode: receiptCode,
+    timestamp: new Date().toISOString(),
+    selections: selObj
+  });
+
+  /* Mark student as voted */
+  var user = GTV.getCurrentUser();
+  if (user) {
+    var students = GTV.getStudents();
+    var idx = students.findIndex(function(s){ return s.id === user.id; });
+    if (idx >= 0) {
+      students[idx].voted = true;
+      students[idx].receiptCode = receiptCode;
+      GTV.saveStudents(students);
+    }
+  }
+
+  /* Pre-load receipt for verify page */
+  sessionStorage.setItem("gt_receipt", receiptCode);
+
   document.getElementById("success").classList.add("show");
-  setTimeout(function(){ navigateTo("gt-vote-dashboard.html?voted=true"); }, 4500);
+  setTimeout(function(){ navigateTo("gt-vote-dashboard.html"); }, 4500);
 }
 
 updateProgress();
